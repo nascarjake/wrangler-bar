@@ -20,7 +20,7 @@ actor FakeRunner: CommandRunning {
         if args == ["--version"] {
             return CommandResult(status: 0, output: command.arguments.count == 1 ? nodeVersion : cliVersion)
         }
-        if args == ["login", "--help"] { return CommandResult(status: 0, output: deviceSupported ? "--device --profile" : "--browser") }
+        if args == ["login", "--help"] { return CommandResult(status: 0, output: deviceSupported ? "--device --scopes-list" : "--browser") }
         if holdLogin { return await withCheckedContinuation { waiting = $0 } }
         return CommandResult(status: loginResult, output: "DO_NOT_DISPLAY_DEVICE_CODE")
     }
@@ -57,21 +57,43 @@ struct CoreTests {
         #expect(env["BROWSER"] == nil)
         #expect(env["PATH"]?.hasPrefix("/custom/bin:") == true)
     }
-    @Test func readinessAndExplicitProfileLoginDiscardOutput() async throws {
+    @Test func readinessAndDefaultLoginDiscardOutput() async throws {
         let (root, node, cli) = try fixture(); defer { try? FileManager.default.removeItem(atPath: root) }
         let fake = FakeRunner()
         let controller = CLIController(runner: fake, directory: root)
         await controller.check(nodeOverride: node, wranglerOverride: cli)
         #expect(controller.installation?.wranglerVersion == Version("4.160.0"))
         #expect(await fake.commands.count == 3) // No authentication during readiness.
-        await controller.signIn(profile: "personal")
+        await controller.signIn(profile: "")
         let commands = await fake.commands
-        #expect(commands.last?.arguments == [cli, "login", "--device", "--profile", "personal"])
+        #expect(commands.last?.arguments == [cli, "login", "--device"])
         #expect(commands.last?.capture == false)
         #expect(commands.last?.environment["WRANGLER_LOG_PATH"] == root + "/discard.log")
         #expect(try FileManager.default.destinationOfSymbolicLink(atPath: root + "/discard.log") == "/dev/null")
         #expect(!controller.status.contains("DO_NOT_DISPLAY"))
         #expect(controller.status == "Wrangler reports sign-in completed")
+    }
+    @Test(arguments: ["4.119.0", "4.141.0", "4.160.0"])
+    func namedProfilesNeverStartLoginOrFallBack(cliVersion: String) async throws {
+        let (root, node, cli) = try fixture(); defer { try? FileManager.default.removeItem(atPath: root) }
+        let fake = FakeRunner(); await fake.configure(cli: cliVersion)
+        let controller = CLIController(runner: fake, directory: root)
+        await controller.check(nodeOverride: node, wranglerOverride: cli)
+        #expect(controller.installation != nil)
+        let count = await fake.commands.count
+        await controller.signIn(profile: "personal")
+        #expect(await fake.commands.count == count)
+        #expect(!controller.busy)
+        #expect(controller.status == "Named profiles require Terminal · See named-profile help")
+        #expect(LoginPolicy.deviceArguments(profile: "personal") == nil)
+        #expect(LoginPolicy.deviceArguments(profile: "") == ["login", "--device"])
+    }
+    @Test func legacyNamedProfileAlsoBlocksBeforeReadiness() async throws {
+        let fake = FakeRunner()
+        let controller = CLIController(runner: fake)
+        await controller.signIn(profile: "legacy-name")
+        #expect(await fake.commands.isEmpty)
+        #expect(controller.status.contains("Named profiles require Terminal"))
     }
     @Test func oldNodeAndMissingDeviceFailClosed() async throws {
         let (root, node, cli) = try fixture(); defer { try? FileManager.default.removeItem(atPath: root) }
@@ -81,6 +103,9 @@ struct CoreTests {
         await controller.signIn(profile: "")
         #expect(controller.installation == nil)
         #expect(await fake.commands.count == 1)
+        await fake.configure(cli: "4.118.0")
+        await controller.check(nodeOverride: node, wranglerOverride: cli)
+        #expect(controller.installation == nil)
         await fake.configure(device: false)
         await controller.check(nodeOverride: node, wranglerOverride: cli)
         #expect(controller.installation == nil)

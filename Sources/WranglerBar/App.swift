@@ -38,15 +38,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         add("Wrangler Bar")
         add(controller.status)
-        add(profile.isEmpty ? "Profile: Wrangler default" : "Profile: \(profile)")
+        add(profile.isEmpty ? "Profile: Wrangler default" : "Named profile selected · Terminal required")
         menu.addItem(.separator())
-        add("Sign in to Cloudflare…", #selector(signIn), key: "s", enabled: !controller.busy && controller.installation != nil)
+        add("Sign in to default Cloudflare profile…", #selector(signIn), key: "s", enabled: !controller.busy && controller.installation != nil && profile.isEmpty)
         add("Cancel current operation", #selector(cancel), enabled: controller.busy)
         add("Check installed tools", #selector(checkTools), key: "r", enabled: !controller.busy)
         menu.addItem(.separator())
         add("Choose Wrangler executable…", #selector(chooseWrangler), enabled: !controller.busy)
         add("Choose Node.js executable…", #selector(chooseNode), enabled: !controller.busy)
-        add("Choose authentication profile…", #selector(chooseProfile), enabled: !controller.busy)
+        add("Named-profile setup help…", #selector(namedProfileHelp))
+        if !profile.isEmpty { add("Use default profile in this app…", #selector(useDefaultProfile), enabled: !controller.busy) }
         add("Use automatic tool discovery", #selector(resetTools), enabled: !controller.busy)
         menu.addItem(.separator())
         add("Help & troubleshooting", #selector(help), key: "?")
@@ -57,10 +58,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Task { await controller.check(nodeOverride: nodePath, wranglerOverride: wranglerPath) }
     }
     @objc func signIn() {
+        guard profile.isEmpty else { namedProfileHelp(); return }
         guard !controller.busy, controller.installation != nil else { return }
         let alert = NSAlert()
         alert.messageText = "Sign in with Cloudflare?"
-        alert.informativeText = "Wrangler will open your default browser. Approve only the Cloudflare account and permissions you intend to use. This updates Wrangler’s \(profile.isEmpty ? "default" : profile) profile. The app never signs you out or selects a browser account."
+        alert.informativeText = "Wrangler will open your default browser. Approve only the Cloudflare account and permissions you intend to use. This updates Wrangler’s default profile. Named profiles use the separate Terminal flow shown in Named-profile setup help. The app never signs you out or selects a browser account."
         alert.addButton(withTitle: "Continue to Cloudflare")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
@@ -81,25 +83,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func chooseWrangler() { choose("Choose the installed Wrangler executable", key: "wranglerPath") }
     @objc func chooseNode() { choose("Choose the installed Node.js executable", key: "nodePath") }
     @objc func resetTools() { defaults.removeObject(forKey: "nodePath"); defaults.removeObject(forKey: "wranglerPath"); checkTools() }
-    @objc func chooseProfile() {
+    @objc func useDefaultProfile() {
         let alert = NSAlert()
-        alert.messageText = "Wrangler authentication profile"
-        alert.informativeText = "Leave blank for Wrangler’s default profile. A named profile is passed explicitly to login; the app does not change project bindings. Use letters, digits, dots, underscores or hyphens."
-        let field = NSTextField(string: profile); field.frame = NSRect(x: 0, y: 0, width: 300, height: 24)
-        alert.accessoryView = field
-        alert.addButton(withTitle: "Save"); alert.addButton(withTitle: "Cancel")
+        alert.messageText = "Use the default profile in Wrangler Bar?"
+        alert.informativeText = "Version 0.1.0 saved a named-profile choice that Wrangler device login does not support. This clears only the app’s saved choice and enables its default-profile button. It does not run Wrangler, change credentials, or alter project bindings. A later sign-in will explicitly ask before updating Wrangler’s default profile."
+        alert.addButton(withTitle: "Use default in this app"); alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
-            let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if name.isEmpty || name.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil {
-                defaults.set(name, forKey: "profile"); rebuildMenu()
-            } else { help() }
+            defaults.removeObject(forKey: "profile"); rebuildMenu()
+        }
+    }
+    @objc func namedProfileHelp() {
+        let alert = NSAlert()
+        alert.messageText = "Named profiles use Wrangler’s Terminal flow"
+        alert.informativeText = "Wrangler reserves login --device for its default profile and rejects login --profile NAME. This app does not start named-profile authentication or silently switch to the default.\n\nTo create or re-authenticate a named profile yourself in Terminal, use your installed Wrangler:\n\nwrangler auth create NAME\n\nReplace NAME with your intended profile. Approve the intended account in Cloudflare. This documented flow may use a localhost callback; check wrangler auth create --help for the flags supported by your version. Bind it to a project only if you intend to, using wrangler auth activate NAME /path/to/project. The app runs none of these commands."
+        alert.addButton(withTitle: "Done"); alert.addButton(withTitle: "Cloudflare profile guide")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "https://developers.cloudflare.com/workers/wrangler/profiles/")!)
         }
     }
     @objc func help() {
         let alert = NSAlert()
         alert.messageText = "Wrangler Bar · Help"
-        alert.informativeText = "1. Install a supported Node.js LTS and Wrangler yourself using Cloudflare’s guide. Node 22.13+ and Wrangler 4.119+ with --device are required.\n\n2. If Finder cannot find your tools, choose the Node and Wrangler executables from this menu. Project installs use node_modules/.bin/wrangler. No shell startup files are sourced.\n\n3. Choose the intended profile, then Sign in. Cloudflare opens in your default browser and asks for approval. If no browser opens, cancel and run wrangler login --device in Terminal for Wrangler’s own instructions.\n\nReadiness is a tool check, not a check of your current Cloudflare account. Sign-in results describe this session only. No account details or device codes are displayed or saved by the app."
+        alert.informativeText = "1. Install a supported Node.js LTS and Wrangler yourself using Cloudflare’s guide. Node 22.13+ and Wrangler 4.119+ with --device are required.\n\n2. If Finder cannot find your tools, choose the Node and Wrangler executables from this menu. Project installs use node_modules/.bin/wrangler. No shell startup files are sourced.\n\n3. Choose Sign in to default Cloudflare profile. Cloudflare opens in your default browser and asks for approval. For named profiles, use Named-profile setup help and Wrangler’s Terminal flow. If no browser opens for default sign-in, cancel and run wrangler login --device in Terminal for Wrangler’s own instructions.\n\nReadiness is a tool check, not a check of your current Cloudflare account. Sign-in results describe this session only. No account details or device codes are displayed or saved by the app."
         alert.addButton(withTitle: "Done"); alert.addButton(withTitle: "Cloudflare setup guide")
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertSecondButtonReturn {
@@ -114,6 +121,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 @MainActor
 enum WranglerBarApp {
     static func main() {
+        // A side-effect-free test seam exposes the same command policy used by signIn.
+        if CommandLine.arguments.contains("--print-login-plan") {
+            let arguments = CommandLine.arguments
+            let index = arguments.firstIndex(of: "--profile")
+            let profile = index.flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil } ?? ""
+            let command = LoginPolicy.deviceArguments(profile: profile)
+            let result: [String: Any] = ["mode": profile.isEmpty ? "default-device" : "named-profile-help",
+                                         "arguments": command as Any? ?? NSNull()]
+            let data = try! JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -122,9 +141,18 @@ enum WranglerBarApp {
                 // Build the real native menu without invoking a CLI or browser.
                 delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
                 precondition(delegate.statusItem.menu === delegate.menu)
-                precondition(delegate.menu.items.contains { $0.title == "Sign in to Cloudflare…" && !$0.isEnabled })
+                precondition(delegate.menu.items.contains { $0.title == "Sign in to default Cloudflare profile…" && !$0.isEnabled })
                 precondition(delegate.statusItem.button?.accessibilityLabel() == "Wrangler Bar")
-                print("Native menu smoke passed; authentication was not started.")
+                let suite = "WranglerBarSmoke-" + UUID().uuidString
+                let preferences = UserDefaults(suiteName: suite)!
+                preferences.setVolatileDomain(["profile": "legacy-named-profile"], forName: UserDefaults.argumentDomain)
+                let legacy = AppDelegate(defaults: preferences)
+                legacy.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+                precondition(!legacy.profile.isEmpty)
+                precondition(legacy.menu.items.contains { $0.title == "Sign in to default Cloudflare profile…" && !$0.isEnabled })
+                precondition(legacy.menu.items.contains { $0.title == "Named-profile setup help…" && $0.isEnabled })
+                precondition(legacy.menu.items.contains { $0.title == "Use default profile in this app…" })
+                print("Native default and legacy named-profile menu smoke passed; authentication was not started.")
             } else { app.run() }
         }
     }

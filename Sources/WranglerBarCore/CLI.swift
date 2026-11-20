@@ -89,6 +89,14 @@ public struct Installation: Sendable, Equatable {
     public let wranglerVersion: Version
 }
 
+public enum LoginPolicy {
+    /// Wrangler reserves `login --device` for its default profile. Named profiles
+    /// use `auth create NAME`, whose documented flow currently needs Terminal.
+    public static func deviceArguments(profile: String) -> [String]? {
+        profile.isEmpty ? ["login", "--device"] : nil
+    }
+}
+
 public enum Discovery {
     /// Finder does not inherit shell startup files. Search installed locations without sourcing them.
     public static func directories(home: String, environment: [String: String]) -> [String] {
@@ -171,17 +179,16 @@ public final class CLIController {
         status = nodeFound ? "Choose Wrangler 4.119+ with device login" : "Choose Node.js 22.13+ (a supported LTS is recommended)"
     }
     public func signIn(profile: String) async {
-        guard !busy, let installation else { return }
+        guard !busy else { return }
+        guard let args = LoginPolicy.deviceArguments(profile: profile) else {
+            status = "Named profiles require Terminal · See named-profile help"; changed?(); return
+        }
+        guard let installation else { return }
         guard (try? FileManager.default.destinationOfSymbolicLink(atPath: directory + "/discard.log")) == "/dev/null" else {
             status = "Cannot safely discard CLI logs · Restart the app"; changed?(); return
         }
-        guard profile.isEmpty || profile.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil else {
-            status = "Use a profile name with letters, digits, dots, underscores or hyphens"; changed?(); return
-        }
         busy = true; status = "Waiting for Cloudflare approval in your browser…"; changed?()
         defer { busy = false; changed?() }
-        var args = ["login", "--device"]
-        if !profile.isEmpty { args += ["--profile", profile] }
         let result = await runner.run(command(installation.wrangler, args, node: installation.node, capture: false, timeout: 330))
         status = result.status == 0 ? "Wrangler reports sign-in completed" : "Sign-in stopped or failed · See Help to retry"
     }
