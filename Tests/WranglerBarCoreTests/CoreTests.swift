@@ -73,7 +73,7 @@ struct CoreTests {
             #expect(ProfilePolicy.signInArguments(name: name) == ["auth", "create", name, "--browser=true"])
         }
         #expect(ProfilePolicy.signInArguments(name: "default") == ["login", "--device", "--browser=true"])
-        for name in ["", "--help", "a;touch /tmp/no", "$(id)", "a b", "a\nb", "../work", "staging", "Default"] {
+        for name in ["", "--help", "a;touch /tmp/no", "$(id)", "a b", "a\nb", "../profile", "staging", "Default"] {
             #expect(ProfilePolicy.signInArguments(name: name) == nil)
         }
     }

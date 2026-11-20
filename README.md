@@ -4,9 +4,9 @@ A native Mac menu-bar monitor for your existing Cloudflare Wrangler profiles. Ea
 
 Swift and AppKit, without third-party app dependencies. This independent utility is not an official Cloudflare product.
 
-## Staged version
+## Download
 
-**0.2.0 is staged for review. It has not been published or installed by this change.** The existing v0.1.0 and v0.1.1 releases remain available and unchanged. They do not include the profile monitor or improved discovery described here.
+Get the universal macOS ZIP and `SHA256SUMS` from [release v0.2.0](https://github.com/nascarjake/wrangler-bar/releases/tag/v0.2.0). The earlier v0.1.0 and v0.1.1 releases remain available and unchanged. They do not include the profile monitor or improved discovery described here.
 
 Requirements for 0.2.0:
 
@@ -15,7 +15,7 @@ Requirements for 0.2.0:
 - An existing official npm Wrangler **4.160.0+** installation. The app checks the version, named-auth help, and explicit profile selection before querying any real profile.
 - Internet access for status checks and the user-approved browser authentication.
 
-The staged universal ZIP and `SHA256SUMS` are generated in `dist/`. The signature is ad-hoc integrity signing only: no Developer ID signature and no notarization. A downloaded build may be blocked by Gatekeeper. Review and build the source locally or wait for a signed distribution; keep Gatekeeper enabled.
+The universal ZIP and `SHA256SUMS` are also generated locally in `dist/` by the packaging script. The signature is ad-hoc integrity signing only: no Developer ID signature and no notarization. A downloaded build may be blocked by Gatekeeper. Review and build the source locally or wait for a signed distribution; keep Gatekeeper enabled.
 
 ## Use
 

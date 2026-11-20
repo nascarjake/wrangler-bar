@@ -1,8 +1,8 @@
 # Validation
 
-## Staged 0.2.0
+## Version 0.2.0
 
-Validated with Swift 6.3.3, the macOS SDK, Node.js 22.22.3, and an Apple silicon Mac on macOS 26.4. This version is staged locally; publication and installation are separate steps.
+Validated with Swift 6.3.3, the macOS SDK, Node.js 22.22.3, and an Apple silicon Mac on macOS 26.4. Build and verification completed before publication.
 
 - All 16 tests passed. The profile suite covers exact default/named argument arrays, strict profile-name validation and shell metacharacters, three simultaneous mixed states, independent scopes and timestamps, per-profile refresh, successful named reauthentication, duplicate prevention, cancellation, CLI failures, removed profiles, catalogue failure, and fail-closed tool/selector checks.
 - A native integration test uses the real Process runner and installed Node binary with a synthetic JavaScript CLI. With stdin closed, that fake CLI runs a loopback callback, completes the selected named-profile flow, and refreshes only that profile. It opens no browser, contacts no Cloudflare service, creates no credentials, and discards synthetic sensitive stdout/stderr.
@@ -14,7 +14,7 @@ Validated with Swift 6.3.3, the macOS SDK, Node.js 22.22.3, and an Apple silicon
 
 Only the real profile catalogue metadata was inspected through `auth list`; actual profile identity checks were deliberately excluded to avoid any Wrangler-managed refresh of real credentials during development. Test profiles, permissions, and callback values are fictional. No private Wrangler configuration was read by the app or tests, no tokens were exported or injected, and no real browser OAuth or account changes occurred.
 
-The minimum macOS 13.5 version, manual VoiceOver/keyboard interaction, and real Cloudflare account approval remain untested. Builds are ad-hoc signed, without Developer ID signing or notarization. Existing public releases and the installed app are preserved.
+The minimum macOS 13.5 version, manual VoiceOver/keyboard interaction, and real Cloudflare account approval remain untested. Builds are ad-hoc signed, without Developer ID signing or notarization. Earlier release tags and assets are preserved.
 
 ## Earlier releases
 
